@@ -1,15 +1,29 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../lib/auth'
 
 export default function Empresas() {
+  const { usuario, loading: authLoading, logout } = useAuth()
+  const router = useRouter()
   const [empresas, setEmpresas] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [modalSetor, setModalSetor] = useState(null)
   const [novaEmpresa, setNovaEmpresa] = useState({ nome: '', cnpj: '', responsavel: '', email: '' })
   const [novoSetor, setNovoSetor] = useState('')
+
+  useEffect(() => {
+    if (!authLoading && !usuario) router.push('/')
+    if (!authLoading && usuario) carregarEmpresas()
+  }, [usuario, authLoading])
+
+  async function handleLogout() {
+    await logout()
+    router.push('/')
+  }
 
   useEffect(() => {
     carregarEmpresas()

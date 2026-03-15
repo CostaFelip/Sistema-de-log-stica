@@ -15,7 +15,11 @@ const statusCores = {
 const niveisPermitidosCancelar = ['Administrador', 'Gerente Geral', 'Gerente Financeiro', 'Gerente de Estoque']
 
 export default function Recebimento() {
-  const { usuario, loading: authLoading } = useAuth()
+  const { usuario, loading: authLoading, logout } = useAuth()
+    async function handleLogout() {
+      await logout()
+      router.push('/')
+    }
   const router = useRouter()
   const [aba, setAba] = useState('notas')
   const [recebimentos, setRecebimentos] = useState([])

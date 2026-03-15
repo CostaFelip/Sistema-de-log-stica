@@ -18,7 +18,11 @@ const categoriasDisponiveis = [
 ]
 
 export default function Fornecedores() {
-  const { usuario, loading: authLoading } = useAuth()
+  const { usuario, loading: authLoading, logout } = useAuth()
+    async function handleLogout() {
+      await logout()
+      router.push('/')
+    }
   const router = useRouter()
   const [fornecedores, setFornecedores] = useState([])
   const [loading, setLoading] = useState(true)
