@@ -7,35 +7,44 @@ const supabaseAdmin = createClient(
 
 export async function POST(request) {
   try {
-    const { nome, email, senha, nivel, empresa_id, setor_id, modulos, status } = await request.json()
+    const body = await request.json()
+    console.log('Criando usuário:', body.email)
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: senha,
+      email: body.email,
+      password: body.senha,
       email_confirm: true,
     })
 
     if (authError) {
+      console.log('Erro auth:', authError)
       return Response.json({ error: authError.message }, { status: 400 })
     }
 
-    const { error: dbError } = await supabaseAdmin.from('usuarios').insert([{
-      nome,
-      email,
-      nivel,
-      empresa_id: empresa_id || null,
-      setor_id: setor_id || null,
-      modulos: modulos.length > 0 ? modulos : ['todos'],
-      status,
+    console.log('Auth criado:', authData.user.id)
+
+    const { data: dbData, error: dbError } = await supabaseAdmin.from('usuarios').insert([{
+      nome: body.nome,
+      email: body.email,
+      nivel: body.nivel,
+      empresa_id: body.empresa_id || null,
+      setor_id: body.setor_id || null,
+      modulos: body.modulos?.length > 0 ? body.modulos : ['todos'],
+      status: body.status || 'Ativo',
       auth_id: authData.user.id,
-    }])
+      primeiro_acesso: true,
+    }]).select()
 
     if (dbError) {
+      console.log('Erro db:', dbError)
       return Response.json({ error: dbError.message }, { status: 400 })
     }
 
-    return Response.json({ success: true })
+    console.log('Usuário criado no db:', dbData)
+    return Response.json({ success: true, data: dbData })
+
   } catch (error) {
+    console.log('Erro geral:', error)
     return Response.json({ error: error.message }, { status: 500 })
   }
 }

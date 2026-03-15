@@ -131,11 +131,12 @@ export default function Financeiro() {
           <a href="/meu-suporte" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Meus Tickets</a>
           <a href="/usuarios" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Usuários e Permissões</a>
         </nav>
-        <div className="mt-auto border-t border-gray-100 pt-4">
-          <p className="text-sm font-medium text-gray-800">{usuario?.nome}</p>
-          <p className="text-xs text-gray-400 mb-3">{usuario?.nivel}</p>
-          <button onClick={handleLogout} className="w-full text-left text-sm text-red-500 hover:text-red-600">Sair</button>
-        </div>
+          <div className="mt-auto border-t border-gray-100 pt-4">
+            <p className="text-sm font-medium text-gray-800">{usuario?.nome}</p>
+            <p className="text-xs text-gray-400 mb-1">{usuario?.nivel}</p>
+            <a href="/alterar-senha" className="text-xs text-blue-600 hover:text-blue-700 block mb-3">Alterar senha</a>
+            <button onClick={handleLogout} className="w-full text-left text-sm text-red-500 hover:text-red-600">Sair</button>
+          </div>
       </aside>
 
       <main className="flex-1 p-8">
