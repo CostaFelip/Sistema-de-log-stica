@@ -90,17 +90,29 @@ async function adicionarOrdem() {
     carregarDados()
   }
 }
-  async function alterarStatus(id, novoStatus) {
-    const { data: session } = await supabase.auth.getSession()
-    await supabase.from('ordens').update({
-      status: novoStatus,
-      autorizado_por: usuario.nome,
-      autorizado_por_id: session.session.user.id,
-      data_autorizacao: new Date().toISOString(),
-    }).eq('id', id)
-    carregarDados()
+async function alterarStatus(id, novoStatus) {
+  const { data: session } = await supabase.auth.getSession()
+  await supabase.from('ordens').update({
+    status: novoStatus,
+    autorizado_por: usuario.nome,
+    autorizado_por_id: session.session.user.id,
+    data_autorizacao: new Date().toISOString(),
+    email_enviado: novoStatus === 'Autorizado',
+  }).eq('id', id)
+
+  if (novoStatus === 'Autorizado') {
+    const ordem = ordens.find(o => o.id === id)
+    if (ordem?.fornecedor_email) {
+      await fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ordem: { ...ordem, solicitante: ordem.solicitante || usuario.nome } })
+      })
+    }
   }
 
+  carregarDados()
+}
   const filtradas = filtro === 'Todos' ? ordens : ordens.filter(o => o.status === filtro)
 
   if (authLoading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-400 text-sm">Carregando...</p></div>

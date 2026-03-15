@@ -54,26 +54,26 @@ export default function Fornecedores() {
     const { count } = await supabase.from('fornecedores').select('*', { count: 'exact', head: true })
     return `FOR-${new Date().getFullYear()}-${String((count || 0) + 1).padStart(4, '0')}`
   }
-
-  async function salvarFornecedor() {
-    if (!novo.razao_social || !novo.cnpj) return
-    if (editando) {
-      await supabase.from('fornecedores').update(novo).eq('id', detalhe.id)
-    } else {
-      const codigo = await gerarCodigo()
-      await supabase.from('fornecedores').insert([{ ...novo, codigo }])
-    }
-    setNovo({
-      razao_social: '', nome_fantasia: '', cnpj: '',
-      email: '', telefone: '', contato: '',
-      endereco: '', cidade: '', estado: '', cep: '',
-      categoria: '', observacoes: '', categorias_produtos: []
-    })
-    setModal(false)
-    setEditando(false)
-    setDetalhe(null)
-    carregarDados()
+  
+async function salvarFornecedor() {
+  if (!novo.razao_social || !novo.cnpj) return
+  if (editando && detalhe?.id) {
+    await supabase.from('fornecedores').update(novo).eq('id', detalhe.id)
+  } else {
+    const codigo = await gerarCodigo()
+    await supabase.from('fornecedores').insert([{ ...novo, codigo }])
   }
+  setNovo({
+    razao_social: '', nome_fantasia: '', cnpj: '',
+    email: '', telefone: '', contato: '',
+    endereco: '', cidade: '', estado: '', cep: '',
+    categoria: '', observacoes: '', categorias_produtos: []
+  })
+  setModal(false)
+  setEditando(false)
+  setDetalhe(null)
+  carregarDados()
+}
 
   async function buscarPorCnpj() {
     if (!buscaCnpj) return
