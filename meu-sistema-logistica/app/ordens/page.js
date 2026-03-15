@@ -1,15 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../lib/auth'
 
 const statusCores = {
   Pendente: 'bg-amber-50 text-amber-600',
-  Aprovado: 'bg-green-50 text-green-600',
+  Autorizado: 'bg-green-50 text-green-600',
   Recusado: 'bg-red-50 text-red-500',
 }
 
 export default function Ordens() {
+  const { usuario, loading: authLoading } = useAuth()
+  const router = useRouter()
   const [ordens, setOrdens] = useState([])
   const [empresas, setEmpresas] = useState([])
   const [setores, setSetores] = useState([])
@@ -19,9 +23,12 @@ export default function Ordens() {
   const [codigoBusca, setCodigoBusca] = useState('')
   const [produtoEncontrado, setProdutoEncontrado] = useState(null)
   const [buscando, setBuscando] = useState(false)
-  const [nova, setNova] = useState({ produto: '', quantidade: '', unidade: '', valor: '', empresa_id: '', setor_id: '', produto_id: '' })
+  const [nova, setNova] = useState({ produto: '', quantidade: '', unidade: '', valor: '', empresa_id: '', setor_id: '' })
 
-  useEffect(() => { carregarDados() }, [])
+  useEffect(() => {
+    if (!authLoading && !usuario) router.push('/')
+    if (!authLoading && usuario) carregarDados()
+  }, [usuario, authLoading])
 
   async function carregarDados() {
     setLoading(true)
@@ -53,7 +60,6 @@ export default function Ordens() {
         valor: data.valor,
         empresa_id: data.empresa_id,
         setor_id: data.setor_id,
-        produto_id: data.id,
       })
     } else {
       setProdutoEncontrado(null)
@@ -62,31 +68,42 @@ export default function Ordens() {
     setBuscando(false)
   }
 
-  async function adicionarOrdem() {
-    if (!nova.produto || !nova.quantidade) return
-    const { error } = await supabase.from('ordens').insert([{
-      produto: nova.produto,
-      quantidade: Number(nova.quantidade),
-      unidade: nova.unidade,
-      valor: Number(nova.valor),
-      empresa_id: nova.empresa_id || null,
-      setor_id: nova.setor_id || null,
-    }])
-    if (!error) {
-      setNova({ produto: '', quantidade: '', unidade: '', valor: '', empresa_id: '', setor_id: '', produto_id: '' })
-      setProdutoEncontrado(null)
-      setCodigoBusca('')
-      setModal(false)
-      carregarDados()
-    }
+async function adicionarOrdem() {
+  if (!nova.produto || !nova.quantidade) return
+  const { data: session } = await supabase.auth.getSession()
+  const { error } = await supabase.from('ordens').insert([{
+    produto: nova.produto,
+    produto_codigo: produtoEncontrado.codigo,
+    quantidade: Number(nova.quantidade),
+    unidade: nova.unidade,
+    valor: Number(nova.valor),
+    empresa_id: nova.empresa_id || null,
+    setor_id: nova.setor_id || null,
+    solicitante: usuario.nome,
+    solicitante_id: session.session.user.id,
+  }])
+  if (!error) {
+    setNova({ produto: '', quantidade: '', unidade: '', valor: '', empresa_id: '', setor_id: '' })
+    setProdutoEncontrado(null)
+    setCodigoBusca('')
+    setModal(false)
+    carregarDados()
   }
-
+}
   async function alterarStatus(id, novoStatus) {
-    await supabase.from('ordens').update({ status: novoStatus }).eq('id', id)
+    const { data: session } = await supabase.auth.getSession()
+    await supabase.from('ordens').update({
+      status: novoStatus,
+      autorizado_por: usuario.nome,
+      autorizado_por_id: session.session.user.id,
+      data_autorizacao: new Date().toISOString(),
+    }).eq('id', id)
     carregarDados()
   }
 
   const filtradas = filtro === 'Todos' ? ordens : ordens.filter(o => o.status === filtro)
+
+  if (authLoading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-400 text-sm">Carregando...</p></div>
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -105,6 +122,10 @@ export default function Ordens() {
           <a href="/meu-suporte" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Meus Tickets</a>
           <a href="/usuarios" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Usuários e Permissões</a>
         </nav>
+        <div className="mt-auto border-t border-gray-100 pt-4">
+          <p className="text-sm font-medium text-gray-800">{usuario?.nome}</p>
+          <p className="text-xs text-gray-400">{usuario?.nivel}</p>
+        </div>
       </aside>
 
       <main className="flex-1 p-8">
@@ -121,8 +142,8 @@ export default function Ordens() {
             <p className="text-2xl font-semibold text-amber-600">{ordens.filter(o => o.status === 'Pendente').length}</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-sm text-gray-500 mb-1">Aprovadas</p>
-            <p className="text-2xl font-semibold text-green-600">{ordens.filter(o => o.status === 'Aprovado').length}</p>
+            <p className="text-sm text-gray-500 mb-1">Autorizadas</p>
+            <p className="text-2xl font-semibold text-green-600">{ordens.filter(o => o.status === 'Autorizado').length}</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <p className="text-sm text-gray-500 mb-1">Recusadas</p>
@@ -131,7 +152,7 @@ export default function Ordens() {
         </div>
 
         <div className="flex gap-2 mb-6">
-          {['Todos', 'Pendente', 'Aprovado', 'Recusado'].map(f => (
+          {['Todos', 'Pendente', 'Autorizado', 'Recusado'].map(f => (
             <button key={f} onClick={() => setFiltro(f)} className={`px-4 py-2 rounded-lg text-sm transition-colors ${filtro === f ? 'bg-gray-800 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}>{f}</button>
           ))}
         </div>
@@ -145,36 +166,46 @@ export default function Ordens() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-400 border-b border-gray-100">
+                  <th className="px-6 py-4 font-medium">Código</th>
                   <th className="px-6 py-4 font-medium">Produto</th>
-                  <th className="px-6 py-4 font-medium">Quantidade</th>
-                  <th className="px-6 py-4 font-medium">Valor Unit.</th>
+                  <th className="px-6 py-4 font-medium">Qtd</th>
                   <th className="px-6 py-4 font-medium">Total</th>
-                  <th className="px-6 py-4 font-medium">Empresa</th>
-                  <th className="px-6 py-4 font-medium">Setor</th>
+                  <th className="px-6 py-4 font-medium">Solicitante</th>
+                  <th className="px-6 py-4 font-medium">Autorizado por</th>
                   <th className="px-6 py-4 font-medium">Status</th>
                   <th className="px-6 py-4 font-medium">Ações</th>
                 </tr>
               </thead>
               <tbody className="text-gray-600">
                 {filtradas.length === 0 ? (
-                  <tr><td colSpan={8} className="px-6 py-12 text-center text-gray-400">Nenhuma ordem cadastrada</td></tr>
+                  <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-400">Nenhuma ordem cadastrada</td></tr>
                 ) : filtradas.map(o => (
-                  <tr key={o.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium text-gray-800">{o.produto}</td>
-                    <td className="px-6 py-4">{o.quantidade} {o.unidade}</td>
-                    <td className="px-6 py-4">R$ {Number(o.valor).toFixed(2)}</td>
-                    <td className="px-6 py-4">R$ {(o.quantidade * o.valor).toFixed(2)}</td>
-                    <td className="px-6 py-4">{o.empresas?.nome}</td>
-                    <td className="px-6 py-4">{o.setores?.nome}</td>
-                    <td className="px-6 py-4"><span className={`px-2 py-1 rounded-md text-xs ${statusCores[o.status]}`}>{o.status}</span></td>
-                    <td className="px-6 py-4">
-                      {o.status === 'Pendente' && (
-                        <div className="flex gap-2">
-                          <button onClick={() => alterarStatus(o.id, 'Aprovado')} className="text-xs bg-green-50 text-green-600 px-2 py-1 rounded-md hover:bg-green-100">Aprovar</button>
-                          <button onClick={() => alterarStatus(o.id, 'Recusado')} className="text-xs bg-red-50 text-red-500 px-2 py-1 rounded-md hover:bg-red-100">Recusar</button>
-                        </div>
-                      )}
-                    </td>
+                 <tr key={o.id} className="border-b border-gray-50 hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <p className="font-mono text-xs font-medium text-gray-800">{o.produto_codigo || '—'}</p>
+                      </td>
+                      <td className="px-6 py-4 font-medium text-gray-800">{o.produto}</td>
+                      <td className="px-6 py-4">{o.quantidade} {o.unidade}</td>
+                      <td className="px-6 py-4">R$ {(o.quantidade * o.valor).toFixed(2)}</td>
+                      <td className="px-6 py-4">
+                        <p className="text-gray-700">{o.solicitante || '—'}</p>
+                        {o.created_at && <p className="text-xs text-gray-400">{new Date(o.created_at).toLocaleDateString('pt-BR')}</p>}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-gray-700">{o.autorizado_por || '—'}</p>
+                        {o.data_autorizacao && <p className="text-xs text-gray-400">{new Date(o.data_autorizacao).toLocaleDateString('pt-BR')}</p>}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-md text-xs ${statusCores[o.status]}`}>{o.status}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {o.status === 'Pendente' && (
+                          <div className="flex gap-2">
+                            <button onClick={() => alterarStatus(o.id, 'Autorizado')} className="text-xs bg-green-50 text-green-600 px-2 py-1 rounded-md hover:bg-green-100">Autorizar</button>
+                            <button onClick={() => alterarStatus(o.id, 'Recusado')} className="text-xs bg-red-50 text-red-500 px-2 py-1 rounded-md hover:bg-red-100">Recusar</button>
+                          </div>
+                        )}
+                      </td>
                   </tr>
                 ))}
               </tbody>
@@ -187,9 +218,8 @@ export default function Ordens() {
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl border border-gray-200 p-8 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-800 mb-1">Nova Ordem de Compra</h3>
-            <p className="text-sm text-gray-400 mb-6">Digite o código SKU ou código de barras do produto</p>
+            <p className="text-sm text-gray-400 mb-6">Solicitante: {usuario?.nome}</p>
 
-            {/* Busca por código */}
             <div className="flex gap-2 mb-4">
               <input
                 type="text"
@@ -199,15 +229,11 @@ export default function Ordens() {
                 onKeyDown={(e) => e.key === 'Enter' && buscarProduto()}
                 className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-gray-400"
               />
-              <button
-                onClick={buscarProduto}
-                className="bg-gray-800 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-gray-700"
-              >
+              <button onClick={buscarProduto} className="bg-gray-800 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-gray-700">
                 {buscando ? '...' : 'Buscar'}
               </button>
             </div>
 
-            {/* Produto encontrado */}
             {produtoEncontrado && (
               <div className="bg-green-50 border border-green-100 rounded-lg p-4 mb-4">
                 <p className="text-xs text-green-600 font-medium mb-1">Produto encontrado</p>
@@ -217,18 +243,11 @@ export default function Ordens() {
               </div>
             )}
 
-            {/* Campos preenchidos automaticamente */}
             {produtoEncontrado && (
               <div className="flex flex-col gap-4">
                 <div>
                   <label className="text-sm text-gray-500 mb-1 block">Quantidade</label>
-                  <input
-                    type="number"
-                    placeholder="Quantidade a pedir"
-                    value={nova.quantidade}
-                    onChange={(e) => setNova({ ...nova, quantidade: e.target.value })}
-                    className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-gray-400"
-                  />
+                  <input type="number" placeholder="Quantidade a pedir" value={nova.quantidade} onChange={(e) => setNova({ ...nova, quantidade: e.target.value })} className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-gray-400" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
