@@ -197,8 +197,7 @@ export default function Ordens() {
         </nav>
         <div className="mt-auto border-t border-gray-100 pt-4">
           <p className="text-sm font-medium text-gray-800">{usuario?.nome}</p>
-          <p className="text-xs text-gray-400 mb-1">{usuario?.nivel}</p>
-          {!isGerente && <p className="text-xs text-blue-600 mb-3">Visualizando seu setor</p>}
+          <p className="text-xs text-gray-400 mb-3">{usuario?.nivel}</p>
           <button onClick={handleLogout} className="w-full text-left text-sm text-red-500 hover:text-red-600">Sair</button>
         </div>
       </aside>
