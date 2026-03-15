@@ -35,19 +35,19 @@ export default function Dashboard() {
         <h1 className="text-xl font-semibold text-gray-800">LogiSystem</h1>
         <nav className="flex flex-col gap-2">
           <a href="/dashboard" className="px-4 py-2 rounded-lg bg-gray-100 text-gray-800 font-medium">Dashboard</a>
+          <a href="/compras" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Compras</a>
           <a href="/estoque" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Estoque</a>
           <a href="/ordens" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Ordens de Compra</a>
           <a href="/transferencias" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Transferências</a>
           <a href="/recebimento" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Recebimento</a>
           <a href="/financeiro" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Financeiro</a>
+          <a href="/fornecedores" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Fornecedores</a>
           <a href="/empresas" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Empresas e Setores</a>
           <a href="/relatorios" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Relatórios</a>
           <a href="/suporte" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Suporte</a>
           <a href="/meu-suporte" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Meus Tickets</a>
           <a href="/usuarios" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Usuários e Permissões</a>
         </nav>
-
-        {/* Usuário logado */}
         <div className="mt-auto border-t border-gray-100 pt-4">
           <p className="text-sm font-medium text-gray-800">{usuario?.nome}</p>
           <p className="text-xs text-gray-400 mb-3">{usuario?.nivel}</p>
@@ -59,7 +59,7 @@ export default function Dashboard() {
           </button>
         </div>
       </aside>
-
+      
       {/* Conteúdo principal */}
       <main className="flex-1 p-8">
         <div className="flex items-center justify-between mb-6">

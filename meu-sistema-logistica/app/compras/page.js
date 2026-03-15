@@ -12,7 +12,7 @@ const statusCores = {
 }
 
 export default function Compras() {
-  const { usuario, loading: authLoading } = useAuth()
+  const { usuario, loading: authLoading, logout } = useAuth()
   const router = useRouter()
   const [aba, setAba] = useState('dashboard')
   const [ordens, setOrdens] = useState([])
@@ -37,6 +37,11 @@ export default function Compras() {
     if (!authLoading && !usuario) router.push('/')
     if (!authLoading && usuario) carregarDados()
   }, [usuario, authLoading])
+
+  async function handleLogout() {
+    await logout()
+    router.push('/')
+  }
 
   async function carregarDados() {
     setLoading(true)
@@ -121,31 +126,30 @@ export default function Compras() {
     }
   }
 
-async function alterarStatus(id, novoStatus) {
-  const { data: session } = await supabase.auth.getSession()
-  await supabase.from('ordens').update({
-    status: novoStatus,
-    autorizado_por: usuario.nome,
-    autorizado_por_id: session.session.user.id,
-    data_autorizacao: new Date().toISOString(),
-    email_enviado: novoStatus === 'Autorizado',
-  }).eq('id', id)
+  async function alterarStatus(id, novoStatus) {
+    const { data: session } = await supabase.auth.getSession()
+    await supabase.from('ordens').update({
+      status: novoStatus,
+      autorizado_por: usuario.nome,
+      autorizado_por_id: session.session.user.id,
+      data_autorizacao: new Date().toISOString(),
+      email_enviado: novoStatus === 'Autorizado',
+    }).eq('id', id)
 
-  if (novoStatus === 'Autorizado') {
-    const ordem = ordens.find(o => o.id === id)
-    if (ordem?.fornecedor_email) {
-      await fetch('/api/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ordem: { ...ordem, solicitante: ordem.solicitante || usuario.nome } })
-      })
+    if (novoStatus === 'Autorizado') {
+      const ordem = ordens.find(o => o.id === id)
+      if (ordem?.fornecedor_email) {
+        await fetch('/api/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ordem: { ...ordem, solicitante: ordem.solicitante || usuario.nome } })
+        })
+      }
     }
+
+    carregarDados()
   }
 
-  carregarDados()
-}
-
-  // Dados para o dashboard
   const estoquesBaixos = produtos.filter(p => p.quantidade <= 10)
   const ordensNesteMes = ordens.filter(o => new Date(o.created_at).getMonth() === new Date().getMonth())
   const valorComprasMes = ordensNesteMes.filter(o => o.status === 'Autorizado').reduce((acc, o) => acc + (o.quantidade * o.valor), 0)
@@ -181,7 +185,8 @@ async function alterarStatus(id, novoStatus) {
         </nav>
         <div className="mt-auto border-t border-gray-100 pt-4">
           <p className="text-sm font-medium text-gray-800">{usuario?.nome}</p>
-          <p className="text-xs text-gray-400">{usuario?.nivel}</p>
+          <p className="text-xs text-gray-400 mb-3">{usuario?.nivel}</p>
+          <button onClick={handleLogout} className="w-full text-left text-sm text-red-500 hover:text-red-600">Sair</button>
         </div>
       </aside>
 
@@ -195,7 +200,6 @@ async function alterarStatus(id, novoStatus) {
           )}
         </div>
 
-        {/* Abas */}
         <div className="flex gap-2 mb-6">
           {[
             { key: 'dashboard', label: 'Dashboard' },
@@ -205,10 +209,8 @@ async function alterarStatus(id, novoStatus) {
           ))}
         </div>
 
-        {/* Aba Dashboard */}
         {aba === 'dashboard' && (
           <div>
-            {/* Cards resumo */}
             <div className="grid grid-cols-4 gap-4 mb-6">
               <div className="bg-white rounded-xl border border-gray-200 p-5">
                 <p className="text-sm text-gray-500 mb-1">Estoque Baixo</p>
@@ -233,7 +235,6 @@ async function alterarStatus(id, novoStatus) {
             </div>
 
             <div className="grid grid-cols-2 gap-6">
-              {/* Estoque Baixo */}
               <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-base font-semibold text-gray-800">Alertas de Estoque Baixo</h3>
@@ -259,7 +260,6 @@ async function alterarStatus(id, novoStatus) {
                 )}
               </div>
 
-              {/* Saída mensal */}
               <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <h3 className="text-base font-semibold text-gray-800 mb-4">Saída Mensal por Produto</h3>
                 {saidaMensal.length === 0 ? (
@@ -288,7 +288,6 @@ async function alterarStatus(id, novoStatus) {
           </div>
         )}
 
-        {/* Aba Ordens */}
         {aba === 'ordens' && (
           <div>
             <div className="grid grid-cols-3 gap-4 mb-6">
@@ -365,14 +364,12 @@ async function alterarStatus(id, novoStatus) {
         )}
       </main>
 
-      {/* Modal nova ordem */}
       {modal && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl border border-gray-200 p-8 w-full max-w-lg max-h-screen overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-800 mb-1">Nova Ordem de Compra</h3>
             <p className="text-sm text-gray-400 mb-6">Solicitante: {usuario?.nome}</p>
 
-            {/* Busca produto */}
             <div className="flex gap-2 mb-4">
               <input type="text" placeholder="Código SKU ou código de barras" value={codigoBusca} onChange={(e) => setCodigoBusca(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && buscarProduto()} className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-gray-400" />
               <button onClick={buscarProduto} className="bg-gray-800 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-gray-700">{buscando ? '...' : 'Buscar'}</button>
@@ -399,7 +396,6 @@ async function alterarStatus(id, novoStatus) {
                   </div>
                 </div>
 
-                {/* Fornecedor */}
                 <div>
                   <label className="text-sm text-gray-500 mb-1 block">Fornecedor</label>
                   {fornecedoresFiltrados.length > 0 && (
