@@ -18,6 +18,19 @@ const niveis = [
   'Operador de Recebimento', 'Operador Financeiro', 'Visualizador'
 ]
 
+const modulosPorNivel = {
+  Administrador: ['todos'],
+  Suporte: ['Dashboard', 'Suporte', 'Meus Tickets', 'Usuários e Permissões'],
+  'Gerente Geral': ['Dashboard', 'Compras', 'Estoque', 'Ordens de Compra', 'Transferências', 'Recebimento', 'Financeiro', 'Pedidos', 'Fornecedores', 'Empresas e Setores', 'Relatórios', 'Suporte', 'Meus Tickets'],
+  'Gerente Financeiro': ['Dashboard', 'Financeiro', 'Recebimento', 'Pedidos', 'Relatórios', 'Meus Tickets'],
+  'Gerente de Estoque': ['Dashboard', 'Compras', 'Estoque', 'Ordens de Compra', 'Transferências', 'Recebimento', 'Fornecedores', 'Relatórios', 'Meus Tickets'],
+  'Gerente de Setor': ['Dashboard', 'Estoque', 'Ordens de Compra', 'Transferências', 'Relatórios', 'Meus Tickets'],
+  'Operador de Estoque': ['Dashboard', 'Estoque', 'Ordens de Compra', 'Transferências', 'Meus Tickets'],
+  'Operador de Recebimento': ['Dashboard', 'Recebimento', 'Estoque', 'Meus Tickets'],
+  'Operador Financeiro': ['Dashboard', 'Financeiro', 'Recebimento', 'Meus Tickets'],
+  Visualizador: ['Dashboard', 'Relatórios', 'Meus Tickets'],
+}
+
 const nivelCores = {
   Administrador: 'bg-red-50 text-red-500',
   Suporte: 'bg-purple-50 text-purple-600',
@@ -81,42 +94,38 @@ export default function Usuarios() {
     setLoading(false)
   }
 
-  async function criarUsuario() {
-    if (!novo.nome || !novo.email || !novo.senha) return
-    setCriando(true)
+async function criarUsuario() {
+  if (!novo.nome || !novo.email || !novo.senha) return
+  setCriando(true)
 
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: novo.email,
-      password: novo.senha,
-      email_confirm: true,
-    })
-
-    if (authError) {
-      alert('Erro ao criar usuário: ' + authError.message)
-      setCriando(false)
-      return
-    }
-
-    const { error: dbError } = await supabase.from('usuarios').insert([{
+  const response = await fetch('/api/criar-usuario', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
       nome: novo.nome,
       email: novo.email,
+      senha: novo.senha,
       nivel: novo.nivel,
-      empresa_id: novo.empresa_id || null,
-      setor_id: novo.setor_id || null,
-      modulos: novo.modulos.length > 0 ? novo.modulos : ['todos'],
+      empresa_id: novo.empresa_id,
+      setor_id: novo.setor_id,
+      modulos: novo.modulos,
       status: novo.status,
-      auth_id: authData.user.id,
-    }])
+    })
+  })
 
-    if (dbError) {
-      alert('Erro ao salvar usuário: ' + dbError.message)
-    } else {
-      setNovo({ nome: '', email: '', senha: '', nivel: 'Visualizador', empresa_id: '', setor_id: '', modulos: [], status: 'Ativo' })
-      setModal(false)
-      carregarDados()
-    }
+  const data = await response.json()
+
+  if (data.error) {
+    alert('Erro ao criar usuário: ' + data.error)
     setCriando(false)
+    return
   }
+
+  setNovo({ nome: '', email: '', senha: '', nivel: 'Visualizador', empresa_id: '', setor_id: '', modulos: [], status: 'Ativo' })
+  setModal(false)
+  carregarDados()
+  setCriando(false)
+}
 
   async function toggleModulo(usuarioId, modulo) {
     const u = usuarios.find(u => u.id === usuarioId)
@@ -329,9 +338,28 @@ export default function Usuarios() {
 
               <div>
                 <label className="text-sm text-gray-500 mb-1 block">Nível de Acesso</label>
-                <select value={novo.nivel} onChange={(e) => setNovo({ ...novo, nivel: e.target.value })} className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-600 outline-none">
+                <select
+                  value={novo.nivel}
+                  onChange={(e) => {
+                    const nivel = e.target.value
+                    const modulos = modulosPorNivel[nivel] || []
+                    setNovo({ ...novo, nivel, modulos })
+                  }}
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-600 outline-none"
+                >
                   {niveis.map(n => <option key={n}>{n}</option>)}
                 </select>
+                {novo.nivel && (
+                  <div className="mt-2 bg-blue-50 rounded-lg p-3">
+                    <p className="text-xs text-blue-600 font-medium mb-1">Módulos incluídos automaticamente</p>
+                    <p className="text-xs text-blue-800">
+                      {modulosPorNivel[novo.nivel]?.includes('todos')
+                        ? 'Acesso total ao sistema'
+                        : modulosPorNivel[novo.nivel]?.join(', ')
+                      }
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
