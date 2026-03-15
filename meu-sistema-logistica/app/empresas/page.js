@@ -1,45 +1,57 @@
 'use client'
 
-import { useState } from 'react'
-
-const empresasIniciais = [
-  { id: 1, nome: 'Empresa A', cnpj: '12.345.678/0001-90', responsavel: 'João Silva', email: 'joao@empresaa.com', setores: ['Manutenção', 'Produção'] },
-  { id: 2, nome: 'Empresa B', cnpj: '98.765.432/0001-10', responsavel: 'Maria Souza', email: 'maria@empresab.com', setores: ['Elétrica', 'RH'] },
-]
+import { useState, useEffect } from 'react'
+import { supabase } from '../../lib/supabase'
 
 export default function Empresas() {
-  const [empresas, setEmpresas] = useState(empresasIniciais)
+  const [empresas, setEmpresas] = useState([])
+  const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [modalSetor, setModalSetor] = useState(null)
   const [novaEmpresa, setNovaEmpresa] = useState({ nome: '', cnpj: '', responsavel: '', email: '' })
   const [novoSetor, setNovoSetor] = useState('')
 
-  function adicionarEmpresa() {
+  useEffect(() => {
+    carregarEmpresas()
+  }, [])
+
+  async function carregarEmpresas() {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('empresas')
+      .select('*, setores(*)')
+      .order('created_at', { ascending: false })
+    if (!error) setEmpresas(data)
+    setLoading(false)
+  }
+
+  async function adicionarEmpresa() {
     if (!novaEmpresa.nome) return
-    setEmpresas([...empresas, { ...novaEmpresa, id: empresas.length + 1, setores: [] }])
-    setNovaEmpresa({ nome: '', cnpj: '', responsavel: '', email: '' })
-    setModal(false)
+    const { error } = await supabase.from('empresas').insert([novaEmpresa])
+    if (!error) {
+      setNovaEmpresa({ nome: '', cnpj: '', responsavel: '', email: '' })
+      setModal(false)
+      carregarEmpresas()
+    }
   }
 
-  function adicionarSetor(empresaId) {
+  async function adicionarSetor(empresaId) {
     if (!novoSetor) return
-    setEmpresas(empresas.map(e =>
-      e.id === empresaId ? { ...e, setores: [...e.setores, novoSetor] } : e
-    ))
-    setNovoSetor('')
-    setModalSetor(null)
+    const { error } = await supabase.from('setores').insert([{ nome: novoSetor, empresa_id: empresaId }])
+    if (!error) {
+      setNovoSetor('')
+      setModalSetor(null)
+      carregarEmpresas()
+    }
   }
 
-  function removerSetor(empresaId, setor) {
-    setEmpresas(empresas.map(e =>
-      e.id === empresaId ? { ...e, setores: e.setores.filter(s => s !== setor) } : e
-    ))
+  async function removerSetor(setorId) {
+    const { error } = await supabase.from('setores').delete().eq('id', setorId)
+    if (!error) carregarEmpresas()
   }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-
-      {/* Menu lateral */}
       <aside className="w-64 bg-white border-r border-gray-200 p-6 flex flex-col gap-6">
         <h1 className="text-xl font-semibold text-gray-800">LogiSystem</h1>
         <nav className="flex flex-col gap-2">
@@ -57,63 +69,60 @@ export default function Empresas() {
         </nav>
       </aside>
 
-      {/* Conteúdo */}
       <main className="flex-1 p-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-semibold text-gray-800">Empresas e Setores</h2>
-          <button
-            onClick={() => setModal(true)}
-            className="bg-gray-800 text-white text-sm px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-          >
+          <button onClick={() => setModal(true)} className="bg-gray-800 text-white text-sm px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
             + Nova Empresa
           </button>
         </div>
 
-        {/* Cards de empresas */}
-        <div className="flex flex-col gap-4">
-          {empresas.map(e => (
-            <div key={e.id} className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-base font-semibold text-gray-800">{e.nome}</h3>
-                  <p className="text-sm text-gray-400">{e.cnpj}</p>
+        {loading ? (
+          <div className="flex items-center justify-center h-40">
+            <p className="text-gray-400 text-sm">Carregando...</p>
+          </div>
+        ) : empresas.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+            <p className="text-gray-400 text-sm">Nenhuma empresa cadastrada</p>
+            <button onClick={() => setModal(true)} className="mt-4 text-sm text-gray-800 underline">Cadastrar primeira empresa</button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {empresas.map(e => (
+              <div key={e.id} className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-800">{e.nome}</h3>
+                    <p className="text-sm text-gray-400">{e.cnpj}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-600">{e.responsavel}</p>
+                    <p className="text-sm text-gray-400">{e.email}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">{e.responsavel}</p>
-                  <p className="text-sm text-gray-400">{e.email}</p>
+                <div className="border-t border-gray-100 pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm text-gray-500">Setores</p>
+                    <button onClick={() => setModalSetor(e.id)} className="text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50">
+                      + Adicionar Setor
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {e.setores && e.setores.map(s => (
+                      <div key={s.id} className="flex items-center gap-1 bg-gray-100 text-gray-700 text-sm px-3 py-1 rounded-lg">
+                        {s.nome}
+                        <button onClick={() => removerSetor(s.id)} className="text-gray-400 hover:text-gray-600 ml-1">×</button>
+                      </div>
+                    ))}
+                    {(!e.setores || e.setores.length === 0) && (
+                      <p className="text-sm text-gray-400">Nenhum setor cadastrado</p>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              <div className="border-t border-gray-100 pt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm text-gray-500">Setores</p>
-                  <button
-                    onClick={() => setModalSetor(e.id)}
-                    className="text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50"
-                  >
-                    + Adicionar Setor
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {e.setores.map(s => (
-                    <div key={s} className="flex items-center gap-1 bg-gray-100 text-gray-700 text-sm px-3 py-1 rounded-lg">
-                      {s}
-                      <button
-                        onClick={() => removerSetor(e.id, s)}
-                        className="text-gray-400 hover:text-gray-600 ml-1"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  {e.setores.length === 0 && (
-                    <p className="text-sm text-gray-400">Nenhum setor cadastrado</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </main>
 
       {/* Modal nova empresa */}
@@ -123,15 +132,15 @@ export default function Empresas() {
             <h3 className="text-lg font-semibold text-gray-800 mb-6">Nova Empresa</h3>
             <div className="flex flex-col gap-4">
               {[
-                { label: 'Nome da Empresa', key: 'nome', type: 'text' },
-                { label: 'CNPJ', key: 'cnpj', type: 'text' },
-                { label: 'Responsável', key: 'responsavel', type: 'text' },
-                { label: 'E-mail', key: 'email', type: 'email' },
+                { label: 'Nome da Empresa', key: 'nome' },
+                { label: 'CNPJ', key: 'cnpj' },
+                { label: 'Responsável', key: 'responsavel' },
+                { label: 'E-mail', key: 'email' },
               ].map(campo => (
                 <div key={campo.key}>
                   <label className="text-sm text-gray-500 mb-1 block">{campo.label}</label>
                   <input
-                    type={campo.type}
+                    type="text"
                     value={novaEmpresa[campo.key]}
                     onChange={(e) => setNovaEmpresa({ ...novaEmpresa, [campo.key]: e.target.value })}
                     className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-gray-400"
@@ -140,18 +149,8 @@ export default function Empresas() {
               ))}
             </div>
             <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setModal(false)}
-                className="flex-1 border border-gray-200 text-gray-500 text-sm px-4 py-2.5 rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={adicionarEmpresa}
-                className="flex-1 bg-gray-800 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-gray-700"
-              >
-                Adicionar
-              </button>
+              <button onClick={() => setModal(false)} className="flex-1 border border-gray-200 text-gray-500 text-sm px-4 py-2.5 rounded-lg hover:bg-gray-50">Cancelar</button>
+              <button onClick={adicionarEmpresa} className="flex-1 bg-gray-800 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-gray-700">Adicionar</button>
             </div>
           </div>
         </div>
@@ -172,23 +171,12 @@ export default function Empresas() {
               />
             </div>
             <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setModalSetor(null)}
-                className="flex-1 border border-gray-200 text-gray-500 text-sm px-4 py-2.5 rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => adicionarSetor(modalSetor)}
-                className="flex-1 bg-gray-800 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-gray-700"
-              >
-                Adicionar
-              </button>
+              <button onClick={() => setModalSetor(null)} className="flex-1 border border-gray-200 text-gray-500 text-sm px-4 py-2.5 rounded-lg hover:bg-gray-50">Cancelar</button>
+              <button onClick={() => adicionarSetor(modalSetor)} className="flex-1 bg-gray-800 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-gray-700">Adicionar</button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   )
 }
