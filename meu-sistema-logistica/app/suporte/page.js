@@ -61,6 +61,8 @@ export default function Suporte() {
           <a href="/relatorios" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Relatórios</a>
           <a href="/suporte" className="px-4 py-2 rounded-lg bg-gray-100 text-gray-800 font-medium">Suporte</a>
           <a href="/meu-suporte" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Meus Tickets</a>
+          <a href="/recebimento" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Recebimento</a>
+          <a href="/financeiro" className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100">Financeiro</a>
         </nav>
       </aside>
 
